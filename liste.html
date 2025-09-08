@@ -55,7 +55,7 @@
     color: white;
     font-weight: 600;
   }
-  tr:hover { background-color: #f0f0f0; }
+  tr:hover { background-color: #f0f0f0; cursor: pointer; }
   .categorieTitre {
     background-color: #eee;
     font-weight: bold;
@@ -212,7 +212,7 @@
           <td class="codeCol">${p.code}</td>
           <td class="actionBtns" style="visibility:hidden;">
             <button class="modifierBtn">Modifier</button>
-            <button class="Btn"></button>
+            <button class="supprimerBtn">Supprimer</button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -231,9 +231,9 @@
           ouvrirFormulaire();
         };
 
+        // Suppression directe sans popup
         supprimerBtn.onclick = async () => {
-            await db.collection("produits").doc(p.id).delete();
-          }
+          await db.collection("produits").doc(p.id).delete();
         };
       });
     });
@@ -264,7 +264,7 @@
       categorie: selectCategorie.value
     });
     annulerModification();
-	afficherProduits();
+    afficherProduits();
   }
 
   db.collection("produits").onSnapshot(snapshot => {
@@ -279,4 +279,3 @@
 
 </body>
 </html>
-
