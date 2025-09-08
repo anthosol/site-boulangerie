@@ -264,8 +264,9 @@
     resultats.forEach(p => {
       const div = document.createElement('div');
       div.className = 'produitItem';
+      // Ici on supprime l'affichage de la catégorie
       div.innerHTML = `
-        <span>${p.nom} (<strong>${p.code}</strong>) - ${p.categorie || 'Autres'}</span>
+        <span>${p.nom} (<strong>${p.code}</strong>)</span>
         <div>
           <button onclick="remplirFormulaireModif(produitsList.find(x => x.id === '${p.id}')); toggleForm('modif')">Modifier</button>
           <button onclick="supprimerProduit('${p.id}')">Supprimer</button>
