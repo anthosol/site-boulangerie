@@ -212,7 +212,7 @@
           <td class="codeCol">${p.code}</td>
           <td class="actionBtns" style="visibility:hidden;">
             <button class="modifierBtn">Modifier</button>
-            <button class="supprimerBtn">Supprimer</button>
+            <button class="Btn"></button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -232,7 +232,6 @@
         };
 
         supprimerBtn.onclick = async () => {
-          if(confirm(`Voulez-vous vraiment supprimer "${p.nom}" ?`)) {
             await db.collection("produits").doc(p.id).delete();
           }
         };
@@ -280,3 +279,4 @@
 
 </body>
 </html>
+
