@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestion Produits</title>
+<style>
+  body { 
+    font-family: Arial, sans-serif; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    margin: 20px; 
+    background: #f9f9f9;
+    color: #333;
+  }
+  h1 {
+    font-size: 20px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h1::before {
+    content: "🔍";
+    font-size: 22px;
+  }
+  #barreRecherche { 
+    width: 50%; 
+    padding: 8px; 
+    margin-bottom: 15px; 
+    font-size: 16px; 
+    border-radius: 5px;
+    border: 1px solid #ccc;
+  }
+  #boutons { 
+    display: flex; 
+    gap: 10px; 
+    margin-bottom: 20px; 
+  }
+  button { 
+    padding: 8px 12px; 
+    font-size: 14px; 
+    cursor: pointer; 
+    border-radius: 5px; 
+    border: none; 
+    background-color: #4CAF50; 
+    color: white; 
+    transition: 0.2s;
+  }
+  button:hover { background-color: #45a049; }
+  .formulaire { 
+    display: none; 
+    flex-direction: column; 
+    gap: 10px; 
+    margin-bottom: 20px; 
+    max-width: 300px; 
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-sizing: border-box;
+  }
+  input, select { 
+    padding: 8px; 
+    border-radius: 5px; 
+    border: 1px solid #ccc; 
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #listeProduits { display: none; flex-direction: column; gap: 5px; width: 50%; }
+  .produitItem { 
+    display: flex; 
+    justify-content: space-between; 
+    padding: 10px; 
+    border-bottom: 1px solid #eee; 
+    background: white;
+    border-radius: 5px;
+    align-items: center;
+  }
+  .produitItem span strong { color: blue; font-weight: bold; }
+  .produitItem div button { background-color: #2196F3; margin-left: 5px; }
+  .produitItem div button:hover { background-color: #0b7dda; }
+  #resultatsModif {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    max-height: 150px;
+    overflow-y: auto;
+    background: white;
+    display: none;
+  }
+  .resultatItem {
+    padding: 8px;
+    cursor: pointer;
+  }
+  .resultatItem:hover {
+    background: #f0f0f0;
+  }
+</style>
+</head>
+<body>
+
+<h1>Recherche Produit</h1>
+<input type="text" id="barreRecherche" placeholder="Rechercher un produit..." oninput="filtrerProduits()">
+
+<div id="boutons">
+  <button onclick="toggleForm('ajout')">Ajouter</button>
+  <button onclick="toggleForm('modif')">Modifier</button>
+  <button onclick="window.location.href='liste.html'">Voir tous les produits</button>
+</div>
+
+<!-- Formulaire ajout -->
+<div id="formulaireAjout" class="formulaire">
+  <input type="text" id="nomProduit" placeholder="Nom du produit">
+  <input type="text" id="codeProduit" placeholder="Code">
+  <select id="categorieProduit">
+    <option value="">-- Choisir une catégorie --</option>
+    <option value="Pains">Pains</option>
+    <option value="Viennoiseries">Viennoiseries</option>
+    <option value="Pâtisseries">Pâtisseries</option>
+    <option value="Autres">Autres</option>
+  </select>
+  <div style="display:flex; gap:5px;">
+    <button onclick="ajouterProduit()">Valider</button>
+    <button onclick="annulerAjout()">Annuler</button>
+  </div>
+</div>
+
+<!-- Formulaire modification -->
+<div id="formulaireModif" class="formulaire">
+  <input type="text" id="rechercheModif" placeholder="Rechercher un produit à modifier..." oninput="rechercherProduitModif()">
+  <div id="resultatsModif"></div>
+  <input type="text" id="modifNom" placeholder="Nouveau nom">
+  <input type="text" id="modifCode" placeholder="Nouveau code">
+  <select id="modifCategorie">
+    <option value="">-- Choisir une catégorie --</option>
+    <option value="Pains">Pains</option>
+    <option value="Viennoiseries">Viennoiseries</option>
+    <option value="Pâtisseries">Pâtisseries</option>
+    <option value="Autres">Autres</option>
+  </select>
+  <div style="display:flex; gap:5px;">
+    <button onclick="modifierProduit()">Modifier</button>
+    <button onclick="annulerModification()">Annuler</button>
+  </div>
+</div>
+
+<div id="listeProduits"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDnHZLrdK0r84dA8mpqv-WQ53JligbBmdQ",
+    authDomain: "produitsboulangerie.firebaseapp.com",
+    projectId: "produitsboulangerie",
+    storageBucket: "produitsboulangerie.appspot.com",
+    messagingSenderId: "386119894944",
+    appId: "1:386119894944:web:930d3b90dc27031a2b86c5"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  let produitsList = [];
+  let produitSelectionne = null;
+
+  function toggleForm(type) {
+    const formAjout = document.getElementById('formulaireAjout');
+    const formModif = document.getElementById('formulaireModif');
+    if(type === 'ajout') {
+      formAjout.style.display = formAjout.style.display === 'flex' ? 'none' : 'flex';
+      formModif.style.display = 'none';
+    } else if(type === 'modif') {
+      formModif.style.display = formModif.style.display === 'flex' ? 'none' : 'flex';
+      formAjout.style.display = 'none';
+    }
+  }
+
+  function annulerAjout() {
+    document.getElementById('nomProduit').value = '';
+    document.getElementById('codeProduit').value = '';
+    document.getElementById('categorieProduit').value = '';
+    document.getElementById('formulaireAjout').style.display = 'none';
+  }
+
+  function ajouterProduit() {
+    const nom = document.getElementById('nomProduit').value.trim();
+    const code = document.getElementById('codeProduit').value.trim();
+    const categorie = document.getElementById('categorieProduit').value;
+    if(!nom || !code || !categorie) return alert("Veuillez remplir tous les champs et choisir une catégorie");
+    db.collection('produits').add({ nom, code, categorie }).then(() => annulerAjout());
+  }
+
+  function remplirFormulaireModif(produit) {
+    produitSelectionne = produit;
+    document.getElementById('modifNom').value = produit.nom;
+    document.getElementById('modifCode').value = produit.code;
+    document.getElementById('modifCategorie').value = produit.categorie || '';
+    document.getElementById('rechercheModif').value = produit.nom;
+    document.getElementById('resultatsModif').style.display = 'none';
+  }
+
+  function modifierProduit() {
+    if(!produitSelectionne) return alert("Veuillez d'abord sélectionner un produit");
+    const nouveauNom = document.getElementById('modifNom').value.trim();
+    const nouveauCode = document.getElementById('modifCode').value.trim();
+    const nouvelleCategorie = document.getElementById('modifCategorie').value;
+    if(!nouveauNom && !nouveauCode && !nouvelleCategorie) return alert("Veuillez remplir au moins un champ ou choisir une catégorie");
+    db.collection('produits').doc(produitSelectionne.id).update({
+      ...(nouveauNom && { nom: nouveauNom }),
+      ...(nouveauCode && { code: nouveauCode }),
+      ...(nouvelleCategorie && { categorie: nouvelleCategorie })
+    }).then(() => annulerModification());
+  }
+
+  function annulerModification() {
+    produitSelectionne = null;
+    document.getElementById('modifNom').value = '';
+    document.getElementById('modifCode').value = '';
+    document.getElementById('modifCategorie').value = '';
+    document.getElementById('rechercheModif').value = '';
+    document.getElementById('resultatsModif').style.display = 'none';
+    document.getElementById('formulaireModif').style.display = 'none';
+  }
+
+  function supprimerProduit(id) { db.collection('produits').doc(id).delete(); }
+
+  function normaliserTexte(texte) {
+    return texte.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
+  function levenshtein(a, b) {
+    const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b[i - 1] === a[j - 1]) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    return matrix[b.length][a.length];
+  }
+
+  function filtrerProduits() {
+    const barre = document.getElementById('barreRecherche');
+    const filtre = normaliserTexte(barre.value);
+    const liste = document.getElementById('listeProduits');
+    liste.innerHTML = '';
+
+    if(!filtre) { liste.style.display = 'none'; return; }
+
+    const resultats = produitsList.filter(p => {
+      const nom = normaliserTexte(p.nom);
+      const code = normaliserTexte(p.code);
+      return nom.includes(filtre) || code.includes(filtre) || levenshtein(filtre, nom) <= 2 || levenshtein(filtre, code) <= 2;
+    });
+
+    resultats.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'produitItem';
+      div.innerHTML = `
+        <span>${p.nom} (<strong>${p.code}</strong>) - ${p.categorie || 'Autres'}</span>
+        <div>
+          <button onclick="remplirFormulaireModif(produitsList.find(x => x.id === '${p.id}')); toggleForm('modif')">Modifier</button>
+          <button onclick="supprimerProduit('${p.id}')">Supprimer</button>
+        </div>
+      `;
+      liste.appendChild(div);
+    });
+    liste.style.display = resultats.length ? 'flex' : 'none';
+  }
+
+  function rechercherProduitModif() {
+    const filtre = normaliserTexte(document.getElementById('rechercheModif').value);
+    const resultatsDiv = document.getElementById('resultatsModif');
+    resultatsDiv.innerHTML = '';
+
+    if(!filtre) { resultatsDiv.style.display = 'none'; return; }
+
+    const resultats = produitsList.filter(p => {
+      const nom = normaliserTexte(p.nom);
+      const code = normaliserTexte(p.code);
+      return nom.includes(filtre) || code.includes(filtre) || levenshtein(filtre, nom) <= 2 || levenshtein(filtre, code) <= 2;
+    });
+
+    if(resultats.length === 0) { resultatsDiv.style.display = 'none'; return; }
+
+    resultats.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'resultatItem';
+      div.textContent = `${p.nom} (${p.code}) - ${p.categorie || 'Autres'}`;
+      div.onclick = () => remplirFormulaireModif(p);
+      resultatsDiv.appendChild(div);
+    });
+    resultatsDiv.style.display = 'block';
+  }
+
+  db.collection('produits').onSnapshot(snapshot => {
+    produitsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    filtrerProduits();
+  });
+</script>
+</body>
+</html>
